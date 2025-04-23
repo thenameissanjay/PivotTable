@@ -8,7 +8,7 @@ export const CsvProvider = ({ children }) => {
   const [rows, setRows] = useState([]);
   const [columns, setColumns] = useState([]);
   const [measures, setMeasures] = useState([]);
-  const [aggregation, setAggregation] = useState("sum");
+  const [aggregation, setAggregation] = useState({}); // Change to object for per-measure aggregation
   const [selectedColumns, setSelectedColumns] =useState([]);
   const [pivotData, setPivotData] = useState([]);
 

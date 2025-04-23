@@ -1,6 +1,14 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 const PivotTable = ({ data, rowLevels = 2, aggregation }) => {
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+
+  useEffect(() => {
+    if (data && Object.keys(data).length > 0) {
+      setIsDataLoaded(true);
+    }
+  }, [data]);
+
   const rowHeaders = [];
   const colHeadersSet = new Set();
   const tableData = {};
@@ -18,23 +26,26 @@ const PivotTable = ({ data, rowLevels = 2, aggregation }) => {
     }
 
     for (const key in node) {
-      const newKeys = [...keys, key];
-      if (typeof node[key]?.[aggregation] === 'number') {
-        const rowKey = newKeys.slice(0, rowLevels).join('|');
-        const colKeyParts = newKeys.slice(rowLevels);
-        const colKey = colKeyParts.join(' → ');
-        tableData[rowKey][colKey] = node[key][aggregation];
+      const aggType = aggregation[key];
+      if (aggType && typeof node[key]?.[aggType] === 'number') {
+        const rowKey = keys.slice(0, rowLevels).join('|');
+        const colKeyParts = keys.slice(rowLevels);
+        const colKey = [...colKeyParts, `${key} (${aggType})`].join(' → ');
+
+        tableData[rowKey] ??= {};
+        tableData[rowKey][colKey] = node[key][aggType];
         colHeadersSet.add(colKey);
-      } else {
-        traverse(node[key], newKeys);
+      } else if (typeof node[key] === 'object') {
+        traverse(node[key], [...keys, key]);
       }
     }
   };
 
-  traverse(data);
+  if (isDataLoaded) {
+    traverse(data);
+  }
 
   const colHeaders = Array.from(colHeadersSet);
-
   const colHeaderLevels = colHeaders.map(h => h.split(' → '));
   const maxDepth = Math.max(...colHeaderLevels.map(h => h.length));
 
@@ -64,6 +75,20 @@ const PivotTable = ({ data, rowLevels = 2, aggregation }) => {
     return span;
   };
 
+  const getColumnTotal = (colKey) => {
+    let total = 0;
+    for (const rowKey in tableData) {
+      if (tableData[rowKey][colKey] !== undefined) {
+        total += tableData[rowKey][colKey];
+      }
+    }
+    return total.toFixed(2); // Round the total to two decimal places
+  };
+
+  if (!isDataLoaded) {
+    return <div></div>;
+  }
+
   return (
     <div className="overflow-auto p-4 max-h-[80vh]">
       <table className="table-auto border-collapse border-2 border-gray-400 w-full text-sm">
@@ -86,8 +111,16 @@ const PivotTable = ({ data, rowLevels = 2, aggregation }) => {
                   key={idx}
                   colSpan={cell.colSpan}
                   className="border-2 border-gray-400 px-4 py-2 bg-gray-100 text-center font-semibold"
+                  style={{ minWidth: '150px', maxWidth: '150px', width: '150px' }}
                 >
-                  {cell.label}
+                  {cell.label.includes('→') ? (
+                    <>
+                      {cell.label.split(' → ')[0]}<br />
+                      <span className="text-sm">{cell.label.split(' → ')[1]}</span>
+                    </>
+                  ) : (
+                    cell.label
+                  )}
                 </th>
               ))}
             </tr>
@@ -109,7 +142,7 @@ const PivotTable = ({ data, rowLevels = 2, aggregation }) => {
                         key={colIndex}
                         rowSpan={rowSpan}
                         className={`border-2 border-gray-400 px-4 py-2 bg-gray-100 left-${colIndex * 150}px z-5 font-medium ${colIndex === rowLevels - 1 ? 'border-r-2 border-gray-400' : ''}`}
-                        style={{ minWidth: '150px' }}
+                        style={{ minWidth: '150px', maxWidth: '150px', width: '150px' }}
                       >
                         {val}
                       </td>
@@ -117,18 +150,40 @@ const PivotTable = ({ data, rowLevels = 2, aggregation }) => {
                   }
                   return null;
                 })}
-                {colHeaders.map((col, j) => (
-                  <td
-                    key={j}
-                    className="border-2 border-gray-400 px-4 py-2 text-center"
-                  >
-                    {tableData[rowKey][col] ?? ''}
-                  </td>
-                ))}
+                {colHeaders.map((col, j) => {
+                  const colKey = colHeaders[j];
+                  const aggValue = tableData[rowKey]?.[colKey] ?? '';
+                  const roundedAggValue = typeof aggValue === 'number' ? aggValue.toFixed(2) : aggValue;
+                  return (
+                    <td
+                      key={j}
+                      className="border-2 border-gray-400 px-4 py-2 text-center"
+                      style={{ minWidth: '150px', maxWidth: '150px', width: '150px' }}
+                    >
+                      {roundedAggValue}
+                    </td>
+                  );
+                })}
               </tr>
             );
           })}
         </tbody>
+        <tfoot>
+          <tr>
+            <td className="border-2 border-gray-400 px-4 py-2 font-semibold text-center" colSpan={rowLevels} style={{ minWidth: '150px', maxWidth: '150px', width: '150px' }}>
+              Total
+            </td>
+            {colHeaders.map((col, idx) => (
+              <td
+                key={`footer-${idx}`}
+                className="border-2 border-gray-400 px-4 py-2 text-center font-semibold bg-gray-50"
+                style={{ minWidth: '150px', maxWidth: '150px', width: '150px' }}
+              >
+                {getColumnTotal(col)}
+              </td>
+            ))}
+          </tr>
+        </tfoot>
       </table>
     </div>
   );

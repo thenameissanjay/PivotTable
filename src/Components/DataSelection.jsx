@@ -63,6 +63,13 @@ const PivotSelector = ({ headers }) => {
     setSelectedColumns(Array.from(newSelected));
   };
 
+  const handleAggregationChange = (measure, newAggregation) => {
+    setAggregation((prevAggregations) => ({
+      ...prevAggregations,
+      [measure]: newAggregation,
+    }));
+  };
+
   const renderSelectedTags = (label, type, state) => (
     <div>
       <div className="flex justify-between items-center mb-2">
@@ -133,61 +140,52 @@ const PivotSelector = ({ headers }) => {
   };
 
   return (
-<div className="relative p-6 bg-white shadow-md rounded-lg max-w-6xl mx-auto mt-6">
-  <h2 className="text-2xl font-bold text-blue-700 mb-6">
-    Pivot Table Configuration
-  </h2>
+    <div className="relative p-6 bg-white shadow-md rounded-lg max-w-6xl mx-auto mt-6">
+      <h2 className="text-2xl font-bold text-blue-700 mb-6">Pivot Table Configuration</h2>
 
-  {/* Flex container for equal space distribution */}
-  <div className="flex space-x-6 mb-6">
-    <div className="flex-1">
-      {renderSelectedTags("Rows", "row", rows)}
+      {/* Flex container for equal space distribution */}
+      <div className="flex space-x-6 mb-6">
+        <div className="flex-1">{renderSelectedTags("Rows", "row", rows)}</div>
+        <div className="flex-1">{renderSelectedTags("Columns", "column", columns)}</div>
+        <div className="flex-1">{renderSelectedTags("Measures", "measure", measures)}</div>
+
+        <div className="flex-1">
+          <h4 className="text-sm font-semibold text-gray-700 mb-1">Aggregation Type</h4>
+          {measures.map((measure) => (
+            <div key={measure} className="flex items-center mb-3">
+              <span className="mr-2">{measure}</span>
+              <select
+  value={aggregation[measure] || ""}
+  onChange={(e) => handleAggregationChange(measure, e.target.value)}
+  className="border border-gray-300 rounded-lg px-4 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500 hover:bg-blue-100 transition-all ease-in-out"
+>
+  <option value="" disabled>
+    Select
+  </option>
+  <option value="sum">Sum</option>
+  <option value="count">Count</option>
+  <option value="avg">Average</option>
+  <option value="max">Maximum</option>
+  <option value="min">Minimum</option>
+</select>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <h4 className="text-md font-semibold text-gray-700 mb-2">Selected Columns</h4>
+        <div className="flex flex-wrap gap-2">
+          {selectedColumns.map((col) => (
+            <span key={col} className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm">
+              {col}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {renderPopup()}
     </div>
-    <div className="flex-1">
-      {renderSelectedTags("Columns", "column", columns)}
-    </div>
-    <div className="flex-1">
-      {renderSelectedTags("Measures", "measure", measures)}
-    </div>
-
-    <div className="flex-1">
-      <h4 className="text-sm font-semibold text-gray-700 mb-1">
-        Aggregation Type
-      </h4>
-      <select
-        value={aggregation}
-        onChange={(e) => setAggregation(e.target.value)}
-        className="border border-gray-300 rounded-lg px-4 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500 hover:bg-blue-100 transition-all ease-in-out"
-      >
-        <option value="sum">Sum</option>
-        <option value="count">Count</option>
-        <option value="avg">Average</option>
-        <option value="max">Maximum</option>
-        <option value="min">Minimum</option>
-      </select>
-    </div>
-  </div>
-
-  <div className="mt-4">
-    <h4 className="text-md font-semibold text-gray-700 mb-2">
-      Selected Columns
-    </h4>
-    <div className="flex flex-wrap gap-2">
-      {selectedColumns.map((col) => (
-        <span
-          key={col}
-          className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm"
-        >
-          {col}
-        </span>
-      ))}
-    </div>
-  </div>
-
-  {renderPopup()}
-</div>
-
-
   );
 };
 
