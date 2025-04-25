@@ -1,40 +1,51 @@
-
 import './App.css'
 import { CsvContext } from './Context/Context';
-import { useState,useContext, useEffect } from "react";
+import { useContext, useEffect } from "react";
 import CSVUploader from "./Components/LoadCsv";
 import PivotSelector from "./Components/DataSelection";
 import PivotJson from './function/PivotJson';
 import PivotTable from './Components/PivotTable'
 
 function App() {
+  const {
+    csvText,
+    rows,
+    columns,
+    measures,
+    aggregation,
+    selectedColumns,
+  } = useContext(CsvContext);
 
-const {csvText, setCsvText, rows, columns, measures,aggregation, selectedColumns } = useContext(CsvContext);
-// csvText -> Upload Csv File
-// headers -> csvText[0] = [Product, region, month, category, measures]
-const headers = csvText ? csvText.trim().split('\n')[0].split(',').map(h => h.trim()) : [];
-// select rows, column, measures <- header
-// PivotJson(csvText, selected columns)
-const pivotJson = selectedColumns? PivotJson(csvText, rows, columns, measures) : {};
+  const headers = csvText
+  ? csvText.trim().split('\n')[0].split(',').map(h => h.trim()).slice(0, -1)  // Remove the last index
+  : [];
 
+  const pivotJson = selectedColumns
+    ? PivotJson(csvText, rows, columns, measures)
+    : {};
 
-useEffect(() => {
-  console.log('PivotJson updated:', pivotJson);
-  console.log(JSON.stringify(pivotJson, null, 2));
-
-}, [pivotJson]);
 
   return (
-    <>
-    
-      <CSVUploader  />
+    <div className="flex flex-row gap-4 p-4">
+      {/* Left side - takes up more space */}
+      <div className="w-4/6">
+        {Object.keys(pivotJson).length === 0 ? (
+          <CSVUploader />
+        ) : (
+          <PivotTable
+            data={pivotJson}
+            rowLevels={rows.length}
+            aggregation={aggregation}
+          />
+        )}
+      </div>
 
-      {csvText &&   ( <PivotSelector headers={headers} />)}
-      
-      {pivotJson && ( <PivotTable data={pivotJson} rowLevels={rows.length} aggregation={aggregation} />)}
-
-    </>
-  )
+      {/* Right side - selector (less space) */}
+      <div className="w-2/6">
+        {csvText && <PivotSelector headers={headers} />}
+      </div>
+    </div>
+  );
 }
 
 export default App;

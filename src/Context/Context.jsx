@@ -11,6 +11,8 @@ export const CsvProvider = ({ children }) => {
   const [aggregation, setAggregation] = useState({}); // Change to object for per-measure aggregation
   const [selectedColumns, setSelectedColumns] =useState([]);
   const [pivotData, setPivotData] = useState([]);
+  const [pivotJson, setPivotJson] = useState([]);
+  const [dateColumns, setDateColumns] = useState([]);
 
 
   return (
@@ -31,7 +33,11 @@ export const CsvProvider = ({ children }) => {
         pivotData, 
         setPivotData,
         aggregation,
-        setAggregation
+        setAggregation,
+        pivotJson,
+        setPivotJson,
+        dateColumns,
+        setDateColumns
       }}
     >
       {children}

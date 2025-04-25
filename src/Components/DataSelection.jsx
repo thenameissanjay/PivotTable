@@ -1,6 +1,69 @@
-import React, { useContext, useState, useMemo } from "react";
+import React, { useContext, useMemo, useEffect, useState } from "react";
 import { CsvContext } from "../Context/Context";
-import { Plus } from "lucide-react"; // Lucide icon
+import { useDrag, useDrop } from "react-dnd";
+
+const ItemTypes = {
+  HEADER: "header",
+};
+
+const DraggableHeader = ({ header, isNumeric, isSelected }) => {
+  const [, drag] = useDrag(() => ({
+    type: ItemTypes.HEADER,
+    item: { header },
+  }), [header]);
+
+  const selectedStyle = isSelected ? "bg-green-300" : "bg-gray-200 hover:bg-gray-300";
+  const isDateHeader = header.includes("Date") || header.toLowerCase().includes("date");
+  const emoji = isDateHeader ? "📅 " : "";
+
+  return (
+    <div
+      ref={drag}
+      className={`px-2 py-1 ${selectedStyle} rounded-full text-xs cursor-move flex items-center gap-1`}
+    >
+       {isNumeric && !isDateHeader && <span className="text-blue-500 font-bold">∑</span>}{emoji}{header} 
+    </div>
+  );
+};
+
+const DropZone = ({ label, type, headers, onDrop, onRemove }) => {
+  const [{ isOver }, drop] = useDrop(() => ({
+    accept: ItemTypes.HEADER,
+    drop: (item) => onDrop(type, item.header),
+    collect: (monitor) => ({
+      isOver: !!monitor.isOver(),
+    }),
+  }), [headers]);
+
+  return (
+    <div className="flex-1 flex flex-col">
+      <h4 className="text-sm font-semibold text-gray-700 mb-2">{label}</h4>
+      <div
+        ref={drop}
+        className={`h-[150px] overflow-y-auto p-2 border-2 border-dashed rounded-lg ${
+          isOver ? "border-blue-500 bg-blue-50" : "border-gray-300"
+        }`}
+      >
+        <div className="flex flex-col gap-2">
+          {headers.map((h) => (
+            <span
+              key={h}
+              className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs flex justify-between items-center"
+            >
+              {h}
+              <button
+                onClick={() => onRemove(type, h)}
+                className="text-red-500 hover:text-red-700 font-bold"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const PivotSelector = ({ headers }) => {
   const {
@@ -14,179 +77,186 @@ const PivotSelector = ({ headers }) => {
     setAggregation,
     selectedColumns,
     setSelectedColumns,
-    csvText
+    csvText,
   } = useContext(CsvContext);
 
-  const [popupType, setPopupType] = useState(null); // 'row', 'column', 'measure'
+  const [showDerivedHeaders, setShowDerivedHeaders] = useState({});
 
-  const updaterMap = {
-    row: [rows, setRows],
-    column: [columns, setColumns],
-    measure: [measures, setMeasures],
-  };
-
-  // Memoized numeric headers based on CSV content
   const numericHeaders = useMemo(() => {
     if (!csvText) return [];
-
     const [headerLine, ...lines] = csvText.trim().split("\n");
     const headerArr = headerLine.split(",");
     const firstDataLine = lines.find((line) => line.trim() !== "");
     if (!firstDataLine) return [];
-
     const values = firstDataLine.split(",");
-
     return headerArr.filter((header, index) => {
       const value = values[index];
       return !isNaN(parseFloat(value)) && isFinite(value);
     });
   }, [csvText]);
 
-  const handleToggleHeader = (type, header) => {
-    const [state, setter] = updaterMap[type];
-    let updated;
+  useEffect(() => {
+    setRows((prev) => (prev.length ? prev : []));
+    setColumns((prev) => (prev.length ? prev : []));
+  }, [rows, columns, setRows, setColumns]);
 
-    if (state.includes(header)) {
-      updated = state.filter((item) => item !== header);
-    } else {
-      updated = [...state, header];
+  const handleDrop = (type, header) => {
+    const isAlreadyInAnyZone =
+      rows.includes(header) || columns.includes(header) || measures.includes(header);
+  
+    const isDateHeader = header.toLowerCase().includes("date");
+    const isNumericHeader = numericHeaders.includes(header);
+  
+    if (isAlreadyInAnyZone) return;
+  
+    if (type === "measure") {
+      // ✅ Only numeric, and not date fields
+      if (!isNumericHeader || isDateHeader) return;
     }
+  
+    if (type === "row" || type === "column") {
+      // ✅ Only allow if NOT pure numeric or is a date field
+      if (isNumericHeader && !isDateHeader) return;
+    }
+  
+    const updaterMap = {
+      row: [rows, setRows],
+      column: [columns, setColumns],
+      measure: [measures, setMeasures],
+    };
+  
+    const [state, setter] = updaterMap[type];
+  
+    setter([...state, header]);
+    setSelectedColumns((prev) => Array.from(new Set([...prev, header])));
+  
+    if (type === "measure") {
+      setAggregation((prev) => ({
+        ...prev,
+        [header]: "sum",
+      }));
+    }
+  };
+  
 
-    setter(updated);
+  const handleRemove = (type, header) => {
+    const updaterMap = {
+      row: [rows, setRows],
+      column: [columns, setColumns],
+      measure: [measures, setMeasures],
+    };
+    const [state, setter] = updaterMap[type];
+    setter(state.filter((h) => h !== header));
+    setSelectedColumns((prev) => prev.filter((col) => col !== header));
 
-    // Update selectedColumns globally
-    const newSelected = new Set([
-      ...(type === "row" ? updated : rows),
-      ...(type === "column" ? updated : columns),
-      ...(type === "measure" ? updated : measures),
-    ]);
-    setSelectedColumns(Array.from(newSelected));
+    if (type === "measure") {
+      setAggregation((prev) => {
+        const newAgg = { ...prev };
+        delete newAgg[header];
+        return newAgg;
+      });
+    }
   };
 
-  const handleAggregationChange = (measure, newAggregation) => {
-    setAggregation((prevAggregations) => ({
-      ...prevAggregations,
-      [measure]: newAggregation,
+  const toggleDerivedHeaders = (column) => {
+    setShowDerivedHeaders((prev) => ({
+      ...prev,
+      [column]: !prev[column],
     }));
   };
 
-  const renderSelectedTags = (label, type, state) => (
-    <div>
-      <div className="flex justify-between items-center mb-2">
-        <h4 className="text-md font-semibold text-gray-700">{label}</h4>
-        <button
-          className="bg-blue-500 text-white p-1 rounded-full hover:bg-blue-600"
-          onClick={() => setPopupType(type)}
-        >
-          <Plus size={18} />
-        </button>
-      </div>
-      <div className="flex flex-wrap gap-2 mb-4">
-        {state.map((item) => (
-          <span
-            key={`${type}-${item}`}
-            className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm"
-          >
-            {item}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-
-  const renderPopup = () => {
-    if (!popupType) return null;
-
-    const [state] = updaterMap[popupType];
-
-    // Determine which headers to show in the popup
-    const availableHeaders =
-      popupType === "measure"
-        ? headers.filter((h) => numericHeaders.includes(h))
-        : headers.filter((h) => !numericHeaders.includes(h));
-
-    return (
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
-        <div className="bg-white border border-gray-300 p-6 rounded-lg shadow-lg max-w-md w-full">
-          <h3 className="text-lg font-semibold mb-4 capitalize">
-            Select {popupType}s
-          </h3>
-          <div className="flex flex-wrap gap-2 mb-4 max-h-60 overflow-y-auto">
-            {availableHeaders.map((header) => (
-              <button
-                key={`${popupType}-option-${header}`}
-                className={`px-3 py-1 rounded-full text-sm border transition ${
-                  state.includes(header)
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-100 hover:bg-gray-200"
-                }`}
-                onClick={() => handleToggleHeader(popupType, header)}
-              >
-                {header}
-              </button>
-            ))}
-          </div>
-          <div className="flex justify-end gap-2">
-            <button
-              className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-              onClick={() => setPopupType(null)}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
-    <div className="relative p-6 bg-white shadow-md rounded-lg max-w-6xl mx-auto mt-6">
-      <h2 className="text-2xl font-bold text-blue-700 mb-6">Pivot Table Configuration</h2>
-
-      {/* Flex container for equal space distribution */}
-      <div className="flex space-x-6 mb-6">
-        <div className="flex-1">{renderSelectedTags("Rows", "row", rows)}</div>
-        <div className="flex-1">{renderSelectedTags("Columns", "column", columns)}</div>
-        <div className="flex-1">{renderSelectedTags("Measures", "measure", measures)}</div>
-
-        <div className="flex-1">
-          <h4 className="text-sm font-semibold text-gray-700 mb-1">Aggregation Type</h4>
-          {measures.map((measure) => (
-            <div key={measure} className="flex items-center mb-3">
-              <span className="mr-2">{measure}</span>
-              <select
-  value={aggregation[measure] || ""}
-  onChange={(e) => handleAggregationChange(measure, e.target.value)}
-  className="border border-gray-300 rounded-lg px-4 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500 hover:bg-blue-100 transition-all ease-in-out"
->
-  <option value="" disabled>
-    Select
-  </option>
-  <option value="sum">Sum</option>
-  <option value="count">Count</option>
-  <option value="avg">Average</option>
-  <option value="max">Maximum</option>
-  <option value="min">Minimum</option>
-</select>
+    <div className="relative p-6 bg-white shadow-md rounded-lg max-w-6xl mx-auto mt-6 h-[90vh]">
+      <div className="mb-6">
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">Fields</h3>
+        <div className="flex flex-col gap-y-2 max-h-[130px] overflow-y-auto border border-gray-300 p-2 rounded-lg">
+          {headers.map((header) => (
+            <div key={header} className="flex items-center justify-between gap-2">
+              <DraggableHeader
+                header={header}
+                isNumeric={numericHeaders.includes(header)}
+                isSelected={selectedColumns.includes(header)}
+              />
+              {header.includes("date") && (
+                <button
+                  onClick={() => toggleDerivedHeaders(header)}
+                  className="px-2 py-1 text-xs bg-blue-500 text-white rounded-full"
+                >
+                  {showDerivedHeaders[header] ? "Hide Derived" : "Show Derived"}
+                </button>
+              )}
             </div>
           ))}
         </div>
       </div>
 
-      <div className="mt-4">
-        <h4 className="text-md font-semibold text-gray-700 mb-2">Selected Columns</h4>
-        <div className="flex flex-wrap gap-2">
-          {selectedColumns.map((col) => (
-            <span key={col} className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm">
-              {col}
-            </span>
-          ))}
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <DropZone
+          label="Rows"
+          type="row"
+          headers={rows}
+          onDrop={handleDrop}
+          onRemove={handleRemove}
+        />
+        <DropZone
+          label="Columns"
+          type="column"
+          headers={columns}
+          onDrop={handleDrop}
+          onRemove={handleRemove}
+        />
       </div>
 
-      {renderPopup()}
+      {/* Measures + Aggregation in horizontal layout */}
+      <div className="mt-6 flex flex-col gap-4 md:flex-row md:gap-6 items-start">
+        <div className="w-full md:w-1/2">
+          <DropZone
+            label="Measures"
+            type="measure"
+            headers={measures.filter(
+              (h) => numericHeaders.includes(h) && !h.includes("date")
+            )}
+            onDrop={handleDrop}
+            onRemove={handleRemove}
+          />
+        </div>
+
+        <div className="flex-1 w-full md:w-1/2">
+          <h4 className="text-xs font-semibold text-gray-700 mb-2">
+            Aggregation Type
+          </h4>
+          <div className="space-y-2 max-h-[200px] overflow-y-auto border border-gray-300 p-2 rounded-lg">
+            {measures
+              .filter(
+                (h) => numericHeaders.includes(h) && !h.includes("date")
+              )
+              .map((measure) => (
+                <div key={measure} className="flex items-center gap-1 text-xs">
+                  <span className="min-w-[50px] font-medium">{measure}</span>
+                  <select
+                    value={aggregation[measure] || "sum"}
+                    onChange={(e) =>
+                      setAggregation((prev) => ({
+                        ...prev,
+                        [measure]: e.target.value,
+                      }))
+                    }
+                    className="flex-1 border min-w-[10px] border-gray-300 rounded-lg px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 hover:bg-blue-100 transition-all"
+                  >
+                    <option value="sum">Sum</option>
+                    <option value="count">Count</option>
+                    <option value="avg">Average</option>
+                    <option value="max">Maximum</option>
+                    <option value="min">Minimum</option>
+                  </select>
+                </div>
+              ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
+
 
 export default PivotSelector;

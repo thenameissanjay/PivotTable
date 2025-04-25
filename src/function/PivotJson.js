@@ -13,20 +13,20 @@ function sortJsonRecursively(data) {
   }
   return data; // Return the value if it's neither an object nor an array
 }
-// 📊 PivotJson function to convert CSV data into nested pivot format and return sorted output
+//  PivotJson function to convert CSV data into nested pivot format and return sorted output
 function PivotJson(csvData, rowDimensions, columnDimensions, valueFields) {
   const [headerLine, ...lines] = csvData.trim().split('\n');
   const headers = headerLine.split(',');
 
-  const selectedHeaders = [...rowDimensions, ...columnDimensions]; // ➕ combine row & column headers
-  const pivot = {}; // 🏗️ pivot structure
+  const selectedHeaders = [...rowDimensions, ...columnDimensions]; //  combine row & column headers
+  const pivot = {}; //  pivot structure
 
   lines.forEach(line => {
     const values = line.split(',');
     const row = {};
 
     headers.forEach((header, index) => {
-      row[header] = isNaN(values[index]) ? values[index] : Number(values[index]); // 🔢 convert numbers
+      row[header] = isNaN(values[index]) ? values[index] : Number(values[index]); //  convert numbers
     });
 
     let currentKey = pivot;
@@ -64,7 +64,6 @@ function PivotJson(csvData, rowDimensions, columnDimensions, valueFields) {
   // 🧹 Sort pivot data alphabetically before returning
   const sortedPivot = sortJsonRecursively(pivot);
 
-  console.log('Final Sorted Pivot Data:', JSON.stringify(sortedPivot, null, 2)); // 📋 pretty print
   return sortedPivot;
 }
 
