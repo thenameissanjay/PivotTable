@@ -16,13 +16,13 @@ function sortJsonRecursively(data) {
 //  PivotJson function to convert CSV data into nested pivot format and return sorted output
 function PivotJson(csvData, rowDimensions, columnDimensions, valueFields) {
   const [headerLine, ...lines] = csvData.trim().split('\n');
-  const headers = headerLine.split(',');
+  const headers = headerLine.trim().split(',');
 
   const selectedHeaders = [...rowDimensions, ...columnDimensions]; //  combine row & column headers
   const pivot = {}; //  pivot structure
 
   lines.forEach(line => {
-    const values = line.split(',');
+    const values = line.trim().split(',');
     const row = {};
 
     headers.forEach((header, index) => {

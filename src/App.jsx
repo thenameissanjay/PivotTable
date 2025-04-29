@@ -17,8 +17,9 @@ function App() {
   } = useContext(CsvContext);
 
   const headers = csvText
-  ? csvText.trim().split('\n')[0].split(',').map(h => h.trim()).slice(0, -1)  // Remove the last index
+  ? csvText.trim().split('\n')[0].split(',').map(h => h.trim())
   : [];
+
 
   const pivotJson = selectedColumns
     ? PivotJson(csvText, rows, columns, measures)

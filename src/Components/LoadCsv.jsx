@@ -70,8 +70,6 @@ const CSVUploader = () => {
             newRow[`${col}.DayName`] = dayNames[date.getDay()];
             newRow[`${col}.Quarter`] = `Q${Math.floor((date.getMonth() + 3) / 3)}`;
             newRow[`${col}.WeekNumber`] = getWeekNumber(date);
-            newRow[``] = "";
-
           }
         });
         return newRow;

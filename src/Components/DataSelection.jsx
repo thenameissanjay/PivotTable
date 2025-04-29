@@ -85,12 +85,13 @@ const PivotSelector = ({ headers }) => {
   const numericHeaders = useMemo(() => {
     if (!csvText) return [];
     const [headerLine, ...lines] = csvText.trim().split("\n");
-    const headerArr = headerLine.split(",");
+    const headerArr = headerLine.trim().split(",");
     const firstDataLine = lines.find((line) => line.trim() !== "");
     if (!firstDataLine) return [];
     const values = firstDataLine.split(",");
+    console.log(values)
     return headerArr.filter((header, index) => {
-      const value = values[index];
+      const value = values[index].trim();
       return !isNaN(parseFloat(value)) && isFinite(value);
     });
   }, [csvText]);
