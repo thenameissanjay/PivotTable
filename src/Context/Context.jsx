@@ -13,8 +13,13 @@ export const CsvProvider = ({ children }) => {
   const [pivotData, setPivotData] = useState([]);
   const [pivotJson, setPivotJson] = useState([]);
   const [dateColumns, setDateColumns] = useState([]);
+  const [userID, setUserID] = useState(1);
+  const [reload, setReload] = useState(false);
 
-
+  const toggleReload = () => {
+    setReload(prev => !prev);
+    console.log('toggle') // toggles between true/false
+  }
   return (
     <CsvContext.Provider
       value={{
@@ -37,7 +42,10 @@ export const CsvProvider = ({ children }) => {
         pivotJson,
         setPivotJson,
         dateColumns,
-        setDateColumns
+        setDateColumns,
+        userID, 
+        setUserID,
+        reload, toggleReload
       }}
     >
       {children}

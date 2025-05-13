@@ -5,6 +5,8 @@ import CSVUploader from "./Components/LoadCsv";
 import PivotSelector from "./Components/DataSelection";
 import PivotJson from './function/PivotJson';
 import PivotTable from './Components/PivotTable'
+import Credits from './Components/Credits'
+
 
 function App() {
   const {
@@ -27,6 +29,7 @@ function App() {
 
 
   return (
+    <>
     <div className="flex flex-row gap-4 p-4">
       {/* Left side - takes up more space */}
       <div className="w-4/6">
@@ -45,7 +48,10 @@ function App() {
       <div className="w-2/6">
         {csvText && <PivotSelector headers={headers} />}
       </div>
+
     </div>
+    <Credits/>
+    </>
   );
 }
 

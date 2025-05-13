@@ -95,16 +95,18 @@ const PivotSelector = ({ headers }) => {
       return !isNaN(parseFloat(value)) && isFinite(value);
     });
   }, [csvText]);
-
+  
   useEffect(() => {
-    setRows((prev) => (prev.length ? prev : []));
-    setColumns((prev) => (prev.length ? prev : []));
-  }, [rows, columns, setRows, setColumns]);
+    // Reset to empty arrays only when `rows` and `columns` are empty
+    setRows((prev) => (prev.length === 0 ? [] : prev));
+    setColumns((prev) => (prev.length === 0 ? [] : prev));
+  }, []); // Run once, on mount (this avoids infinite re-renders)
+  
 
   const handleDrop = (type, header) => {
     const isAlreadyInAnyZone =
       rows.includes(header) || columns.includes(header) || measures.includes(header);
-  
+    console.log(isAlreadyInAnyZone)
     const isDateHeader = header.toLowerCase().includes("date");
     const isNumericHeader = numericHeaders.includes(header);
   
@@ -117,7 +119,9 @@ const PivotSelector = ({ headers }) => {
   
     if (type === "row" || type === "column") {
       // ✅ Only allow if NOT pure numeric or is a date field
-      if (isNumericHeader && !isDateHeader) return;
+      if (isNumericHeader && !isDateHeader) {
+        console.log("hello")
+        return;}
     }
   
     const updaterMap = {
@@ -128,7 +132,12 @@ const PivotSelector = ({ headers }) => {
   
     const [state, setter] = updaterMap[type];
   
-    setter([...state, header]);
+    setter((prev) => [...prev, header]);
+    console.log(rows)
+    console.log(columns)
+    console.log(measures)
+
+
     setSelectedColumns((prev) => Array.from(new Set([...prev, header])));
   
     if (type === "measure") {
