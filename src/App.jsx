@@ -5,7 +5,6 @@ import CSVUploader from "./Components/LoadCsv";
 import PivotSelector from "./Components/DataSelection";
 import PivotJson from './function/PivotJson';
 import PivotTable from './Components/PivotTable'
-import Credits from './Components/Credits'
 
 
 function App() {
@@ -50,7 +49,6 @@ function App() {
       </div>
 
     </div>
-    <Credits/>
     </>
   );
 }

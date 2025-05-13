@@ -15,8 +15,7 @@ const CSVUploader = () => {
  
   const handleFileUpload = (e) => {
  
-    Credits(userID, "read", "uploading the document");
-    toggleReload();
+
     const file = e.target.files[0];
     if (!file) return;
  
