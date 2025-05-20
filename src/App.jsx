@@ -28,7 +28,6 @@ function App() {
 
   return (
     <div className="flex flex-row gap-4 p-4">
-      {/* Left side - takes up more space */}
       <div className="w-4/6">
         {Object.keys(pivotJson).length === 0 ? (
           <CSVUploader />
@@ -41,7 +40,6 @@ function App() {
         )}
       </div>
 
-      {/* Right side - selector (less space) */}
       <div className="w-2/6">
         {csvText && <PivotSelector headers={headers} />}
       </div>

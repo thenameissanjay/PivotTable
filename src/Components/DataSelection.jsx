@@ -1,40 +1,39 @@
 import React, { useContext, useMemo, useEffect, useState } from "react";
 import { CsvContext } from "../Context/Context";
 import { useDrag, useDrop } from "react-dnd";
+import { DndProvider } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
 
-const ItemTypes = {
-  HEADER: "header",
-};
-
+ 
 const DraggableHeader = ({ header, isNumeric, isSelected }) => {
   const [, drag] = useDrag(() => ({
-    type: ItemTypes.HEADER,
+    type: "header",
     item: { header },
-  }), [header]);
-
+  }));
+ 
   const selectedStyle = isSelected ? "bg-green-300" : "bg-gray-200 hover:bg-gray-300";
   const isDateHeader = header.includes("Date") || header.toLowerCase().includes("date");
   const emoji = isDateHeader ? "📅 " : "";
-
+ 
   return (
     <div
       ref={drag}
       className={`px-2 py-1 ${selectedStyle} rounded-full text-xs cursor-move flex items-center gap-1`}
     >
-       {isNumeric && !isDateHeader && <span className="text-blue-500 font-bold">∑</span>}{emoji}{header} 
+       {isNumeric && !isDateHeader && <span className="text-blue-500 font-bold">∑</span>}{emoji}{header}
     </div>
   );
 };
-
+ 
 const DropZone = ({ label, type, headers, onDrop, onRemove }) => {
   const [{ isOver }, drop] = useDrop(() => ({
-    accept: ItemTypes.HEADER,
+    accept: "header",
     drop: (item) => onDrop(type, item.header),
     collect: (monitor) => ({
       isOver: !!monitor.isOver(),
     }),
-  }), [headers]);
-
+  }));
+ 
   return (
     <div className="flex-1 flex flex-col">
       <h4 className="text-sm font-semibold text-gray-700 mb-2">{label}</h4>
@@ -64,7 +63,7 @@ const DropZone = ({ label, type, headers, onDrop, onRemove }) => {
     </div>
   );
 };
-
+ 
 const PivotSelector = ({ headers }) => {
   const {
     rows,
@@ -79,67 +78,62 @@ const PivotSelector = ({ headers }) => {
     setSelectedColumns,
     csvText,
   } = useContext(CsvContext);
-
-  const [showDerivedHeaders, setShowDerivedHeaders] = useState({});
-
+ 
+ 
   const numericHeaders = useMemo(() => {
     if (!csvText) return [];
+ 
     const [headerLine, ...lines] = csvText.trim().split("\n");
-    const headerArr = headerLine.trim().split(",");
-    const firstDataLine = lines.find((line) => line.trim() !== "");
-    if (!firstDataLine) return [];
-    const values = firstDataLine.split(",");
-    console.log(values)
+    const headerArr = headerLine.trim().split(",");  // header
+    const values = lines[0].trim().split(",")        // First Value
+    if (!values) return [];
+ 
     return headerArr.filter((header, index) => {
-      const value = values[index].trim();
+      const value = values[index]
       return !isNaN(parseFloat(value)) && isFinite(value);
     });
   }, [csvText]);
-
+ 
   useEffect(() => {
-    setRows((prev) => (prev.length ? prev : []));
-    setColumns((prev) => (prev.length ? prev : []));
-  }, [rows, columns, setRows, setColumns]);
-
+    setRows((prev) => (prev.length === 0 ? [] : prev));
+    setColumns((prev) => (prev.length === 0 ? [] : prev));
+  }, []); 
+ 
+ 
   const handleDrop = (type, header) => {
-    const isAlreadyInAnyZone =
-      rows.includes(header) || columns.includes(header) || measures.includes(header);
-  
-    const isDateHeader = header.toLowerCase().includes("date");
     const isNumericHeader = numericHeaders.includes(header);
+    const isDateHeader = header.toLowerCase().includes("date");
   
-    if (isAlreadyInAnyZone) return;
+    if (type === "measure" && (!isNumericHeader || isDateHeader)) return;
+    if ((type === "row" || type === "column") && isNumericHeader && !isDateHeader) return;
   
-    if (type === "measure") {
-      // ✅ Only numeric, and not date fields
-      if (!isNumericHeader || isDateHeader) return;
-    }
-  
-    if (type === "row" || type === "column") {
-      // ✅ Only allow if NOT pure numeric or is a date field
-      if (isNumericHeader && !isDateHeader) return;
-    }
+    setRows((prev) => prev.filter((h) => h !== header));
+    setColumns((prev) => prev.filter((h) => h !== header));
+    setMeasures((prev) => prev.filter((h) => h !== header));
   
     const updaterMap = {
-      row: [rows, setRows],
-      column: [columns, setColumns],
-      measure: [measures, setMeasures],
+      row: setRows,
+      column: setColumns,
+      measure: setMeasures,
     };
+    const setState = updaterMap[type];
   
-    const [state, setter] = updaterMap[type];
-  
-    setter([...state, header]);
-    setSelectedColumns((prev) => Array.from(new Set([...prev, header])));
+    setState((prev) => [...prev, header]);
+    
+    setSelectedColumns((prev) => {
+      return Array.from(new Set([...prev, header]));
+    });
   
     if (type === "measure") {
       setAggregation((prev) => ({
         ...prev,
         [header]: "sum",
       }));
-    }
+    } 
   };
   
-
+ 
+ 
   const handleRemove = (type, header) => {
     const updaterMap = {
       row: [rows, setRows],
@@ -147,26 +141,25 @@ const PivotSelector = ({ headers }) => {
       measure: [measures, setMeasures],
     };
     const [state, setter] = updaterMap[type];
+
     setter(state.filter((h) => h !== header));
     setSelectedColumns((prev) => prev.filter((col) => col !== header));
-
+ 
     if (type === "measure") {
+
       setAggregation((prev) => {
-        const newAgg = { ...prev };
-        delete newAgg[header];
-        return newAgg;
+        const filtered = Object.entries(prev).filter(([key]) => key !== header);
+        return Object.fromEntries(filtered);
       });
     }
   };
-
-  const toggleDerivedHeaders = (column) => {
-    setShowDerivedHeaders((prev) => ({
-      ...prev,
-      [column]: !prev[column],
-    }));
-  };
-
+ 
+ 
+ 
   return (
+    <div>
+    <DndProvider backend={HTML5Backend}>
+
     <div className="relative p-6 bg-white shadow-md rounded-lg max-w-6xl mx-auto mt-6 h-[90vh]">
       <div className="mb-6">
         <h3 className="text-sm font-semibold text-gray-700 mb-2">Fields</h3>
@@ -178,19 +171,11 @@ const PivotSelector = ({ headers }) => {
                 isNumeric={numericHeaders.includes(header)}
                 isSelected={selectedColumns.includes(header)}
               />
-              {header.includes("date") && (
-                <button
-                  onClick={() => toggleDerivedHeaders(header)}
-                  className="px-2 py-1 text-xs bg-blue-500 text-white rounded-full"
-                >
-                  {showDerivedHeaders[header] ? "Hide Derived" : "Show Derived"}
-                </button>
-              )}
             </div>
           ))}
         </div>
       </div>
-
+ 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <DropZone
           label="Rows"
@@ -207,7 +192,7 @@ const PivotSelector = ({ headers }) => {
           onRemove={handleRemove}
         />
       </div>
-
+ 
       {/* Measures + Aggregation in horizontal layout */}
       <div className="mt-6 flex flex-col gap-4 md:flex-row md:gap-6 items-start">
         <div className="w-full md:w-1/2">
@@ -221,7 +206,7 @@ const PivotSelector = ({ headers }) => {
             onRemove={handleRemove}
           />
         </div>
-
+ 
         <div className="flex-1 w-full md:w-1/2">
           <h4 className="text-xs font-semibold text-gray-700 mb-2">
             Aggregation Type
@@ -256,8 +241,12 @@ const PivotSelector = ({ headers }) => {
         </div>
       </div>
     </div>
+    </DndProvider>
+    </div>
   );
 };
-
-
+ 
+ 
 export default PivotSelector;
+ 
+ 

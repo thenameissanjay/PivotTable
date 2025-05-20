@@ -1,47 +1,57 @@
-// Recursive function to sort JSON data
-function sortJsonRecursively(data) {
-  if (Array.isArray(data)) {
-    // If the data is an array, recursively sort each item
-    return data.map(item => sortJsonRecursively(item));
-  } else if (typeof data === 'object' && data !== null) {
-    // If the data is an object, recursively sort the keys and their values
-    const sortedObject = {};
-    Object.keys(data).sort().forEach(key => {
-      sortedObject[key] = sortJsonRecursively(data[key]);
-    });
-    return sortedObject;
-  }
-  return data; // Return the value if it's neither an object nor an array
-}
-//  PivotJson function to convert CSV data into nested pivot format and return sorted output
-function PivotJson(csvData, rowDimensions, columnDimensions, valueFields) {
-  const [headerLine, ...lines] = csvData.trim().split('\n');
-  const headers = headerLine.trim().split(',');
 
-  const selectedHeaders = [...rowDimensions, ...columnDimensions]; //  combine row & column headers
-  const pivot = {}; //  pivot structure
+function PivotJson(csvData, rowDimensions, columnDimensions, valueFields) {
+/**
+ * csvData = "department,region,sales\nIT,North,100\n,IT,south,200\n"
+ * rowDimesions = [department]
+ * columnDimesion = [region]
+ * valueFields = [sales]
+ */
+
+  const [headerLine, ...lines] = csvData.trim().split('\n');
+  // ["department, region, sales",
+  // "IT,North,100", 
+  // "IT, south,200"]
+  const headers = headerLine.trim().split(',');
+  // ["department", "region", "sales"]
+
+  const selectedHeaders = [...rowDimensions, ...columnDimensions]; 
+  // [department, region]
+
+  const pivot = {}; 
 
   lines.forEach(line => {
     const values = line.trim().split(',');
+    // values= [IT, north, 100]
+
     const row = {};
 
     headers.forEach((header, index) => {
-      row[header] = isNaN(values[index]) ? values[index] : Number(values[index]); //  convert numbers
+      row[header] = isNaN(values[index]) ? values[index] : Number(values[index]); 
+      /**
+       * row = { department : IT , region: north, sales: 100} 
+       */
     });
 
     let currentKey = pivot;
 
+    // [department, region]
     selectedHeaders.forEach(header => {
+      
       const obj = row[header];
+      // obj = "IT"
       if (!currentKey[obj]) {
-        currentKey[obj] = {}; // 🔄 create nested structure
+        currentKey[obj] = {};
+        // pivot{IT :{}} ---I1
+        // pivot{IT :{North :{}}} ---I2
       }
-      currentKey = currentKey[obj]; // ⬇️ move deeper
+      currentKey = currentKey[obj]; 
     });
-
+   
+    // ["sales"]
     valueFields.forEach(field => {
+      // 100
       const valData = row[field];
-
+      
       if (!currentKey[field]) {
         currentKey[field] = {
           sum: 0,
@@ -49,22 +59,25 @@ function PivotJson(csvData, rowDimensions, columnDimensions, valueFields) {
           min: Number.POSITIVE_INFINITY,
           max: Number.NEGATIVE_INFINITY,
           avg: 0
-        }; // 📈 init metrics
+        };
+         /**
+          *  pivot {IT :{North :{sum:0, count:0, min:-x, max:+x, avg:0}}}
+          */
       }
 
-      // ➕ update aggregation values
       currentKey[field].sum += valData;
       currentKey[field].count += 1;
       currentKey[field].min = Math.min(currentKey[field].min, valData);
       currentKey[field].max = Math.max(currentKey[field].max, valData);
       currentKey[field].avg = parseFloat((currentKey[field].sum / currentKey[field].count).toFixed(2));
+
+         /**
+          *  pivot {IT :{North :{sum:100, count:1, min:100, max:100, avg:100}}}
+          */
     });
   });
 
-  // 🧹 Sort pivot data alphabetically before returning
-  const sortedPivot = sortJsonRecursively(pivot);
-
-  return sortedPivot;
+  return pivot;
 }
 
 export default PivotJson;

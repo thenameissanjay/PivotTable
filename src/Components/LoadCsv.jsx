@@ -2,131 +2,86 @@ import React, { useMemo, useContext, useState } from "react";
 import Papa from "papaparse";
 import { CsvContext } from "../Context/Context";
 
+
 const CSVUploader = () => {
   const { csvText, setCsvText } = useContext(CsvContext);
-  const [loading, setLoading] = useState(false); // To handle loading state
+  const [csvJson, setCsvJson] = useState([]);
 
-  // Function to validate if the string matches the format YYYY-MM-DD
-  const isValidDate = (dateString) => {
-    const regex = /^\d{4}-\d{2}-\d{2}$/; // Regex for YYYY-MM-DD format
-    return regex.test(dateString);
-  };
+  const isDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const handleFileUpload = (event) => {
+  const file = event.target.files[0]; 
+  if (!file) return;
 
-    setLoading(true); // Start loading
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: (results) => {
+      const parsedData = results.data;
+      // [
+      //   { Region: "Asia", Year: 2023, Date: 11/12/2003 },
+      //   { Region: "Europe", Year: 2024, Date: 11/2/2003 }
+      // ]
+      const dateColumns = Object.keys(parsedData[0] || {}).filter((key) =>
+        isDate(parsedData[0][key])
+      );
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target.result;
-
-      // Parse and enrich the CSV file after upload
-      const { data } = Papa.parse(text, {
-        header: true,
-        skipEmptyLines: true,
-      });
-
-      if (!data || data.length === 0) return;
-
-      const dateColumns = [];
-
-      // Identify date columns
-      Object.keys(data[0]).forEach((col) => {
-        const sampleValue = data[0][col];
-        if (isValidDate(sampleValue)) {
-          dateColumns.push(col);
-        }
-      });
-
-      // Function to calculate the ISO week number
-      const getWeekNumber = (date) => {
-        const tempDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-        const dayNum = tempDate.getUTCDay() || 7;
-        tempDate.setUTCDate(tempDate.getUTCDate() + 4 - dayNum);
-        const yearStart = new Date(Date.UTC(tempDate.getUTCFullYear(), 0, 1));
-        return Math.ceil((((tempDate - yearStart) / 86400000) + 1) / 7);
-      };
-
-      // Month and day names
-      const monthNames = [
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"
-      ];
-
-      const dayNames = [
-        "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
-      ];
-
-      // Enrich data with additional date-related columns
-      const enrichedData = data.map((row) => {
+      const enrichedData = parsedData.map((row) => {
         const newRow = { ...row };
         dateColumns.forEach((col) => {
-          const date = new Date(row[col]);
-          if (isValidDate(row[col])) {
-            newRow[`${col}.Year`] = date.getFullYear();
-            newRow[`${col}.MonthName`] = monthNames[date.getMonth()];
-            newRow[`${col}.DayName`] = dayNames[date.getDay()];
-            newRow[`${col}.Quarter`] = `Q${Math.floor((date.getMonth() + 3) / 3)}`;
-            newRow[`${col}.WeekNumber`] = getWeekNumber(date);
+          if (isDate(row[col])) {
+            const date = new Date(row[col]);
+            newRow[`${col}_Year`] = date.getFullYear();
+            newRow[`${col}_Month`] = date.toLocaleString("default", { month: "long" });
+            newRow[`${col}_Day`] = date.toLocaleString("default", { weekday: "long" });
+            newRow[`${col}_Quarter`] = `Q${Math.floor((date.getMonth() + 3) / 3)}`;
           }
+          //  newRow =  { ...rows, Date_Year:2003, Date_Month: Feb, Date_Day: 14, Date_Quarter: 1}
         });
         return newRow;
       });
 
-      // Convert enriched data back to CSV format
-      const enrichedCsvText = Papa.unparse(enrichedData);
-      setCsvText(enrichedCsvText); // Update the context with the enriched CSV
+      setCsvJson(enrichedData); // parsed JSON
+ //  csvjson =  [{ ...rows, Date_Year:2003, Date_Month: Feb, Date_Day: 14, Date_Quarter: 1},
+ //             { ...rows, Date_Year:2003, Date_Month: May, Date_Day: 12, Date_Quarter: 2}]
 
-      setLoading(false); // Stop loading after processing
-    };
 
-    reader.readAsText(file);
-  };
+      const unparsedCsv = Papa.unparse(enrichedData); 
+      setCsvText(unparsedCsv); // unparsed CSV
+    },
+    error: (err) => {
+      console.error("CSV parsing error:", err);
+    },
+  });
+};
 
-  // Memoized parsed data to display in the table (no modification, just parsing)
-  const parsedData = useMemo(() => {
-    if (!csvText) return null;
 
-    const { data } = Papa.parse(csvText, {
-      header: true,
-      skipEmptyLines: true,
-    });
-
-    return data;
-  }, [csvText]);
 
   return (
     <div className="p-6 max-w-4xl mx-auto bg-white shadow-md rounded-2xl border border-gray-200">
-      <h2 className="text-2xl font-bold text-blue-600 mb-4">📁 Upload CSV File</h2>
+      <h2 className="text-2xl font-bold text-blue-600 mb-4">Upload CSV File</h2>
 
       <label className="block mb-6">
         <input
           type="file"
           accept=".csv"
-          onChange={handleFileUpload}
-          className="block w-full text-sm text-gray-500
-            file:mr-4 file:py-2 file:px-4
-            file:rounded-lg file:border-0
-            file:text-sm file:font-semibold
-            file:bg-blue-50 file:text-blue-700
-            hover:file:bg-blue-100"
+          onChange={handleFileUpload}   
+          className=" w-full text-sm text-gray-500 mr-4 py-2 px-4 rounded-lg border-1 text-sm font-semibold bg-blue-50 "
+          
         />
       </label>
 
-      {loading && (
-        <div className="text-center text-blue-600 mb-4">Processing file...</div>
-      )}
+ 
 
-      {parsedData && !loading && (
+      {csvJson &&  (
         <div>
-          <h3 className="text-lg font-semibold text-gray-700 mb-2">🧾 Parsed Table View:</h3>
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">Parsed Table View:</h3>
           <div className="overflow-auto max-h-[400px] border border-gray-300 rounded-lg">
             <table className="min-w-full text-sm text-left border-collapse">
               <thead className="bg-blue-100 sticky top-0 z-10">
                 <tr>
-                  {Object.keys(parsedData[0] || {}).map((key) => (
+                  {/* { Region: "Asia", Year: 2023, Date: 11/12/2003 }-> [region, year, date].map() */}
+                  {Object.keys(csvJson[0] || {}).map((key) => (
                     <th key={key} className="py-2 px-4 font-medium border border-gray-200">
                       {key}
                     </th>
@@ -134,7 +89,9 @@ const CSVUploader = () => {
                 </tr>
               </thead>
               <tbody>
-                {parsedData.map((row, rowIndex) => (
+            {/* { Region: "Asia", Year: 2023, Date: 11/12/2003 }-> [Asia, 2003, 11/12/2003].map() */}
+
+                {csvJson.map((row, rowIndex) => (
                   <tr key={rowIndex} className="even:bg-gray-50">
                     {Object.values(row).map((value, colIndex) => (
                       <td key={colIndex} className="py-2 px-4 border border-gray-200">
