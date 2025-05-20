@@ -301,7 +301,7 @@ const PivotTable = ({ data, rowLevels, aggregation = {} }) => {
                         className="border-2 border-gray-400 px-4 py-2 text-center whitespace-nowrap"
                         style={{ width: '150px' }}
                       >
-                        {displayVal}
+                        {displayVal || 0}
                       </td>
                     );
                   })}
